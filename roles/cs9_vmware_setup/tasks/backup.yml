@@ -1,0 +1,250 @@
+---
+- name: Resolve backup path
+  ansible.builtin.set_fact:
+    setup_backup_root: "{{ backup_root | default(playbook_dir ~ '/backups') }}"
+    setup_backup_id: "{{ backup_id | default(ansible_date_time.iso8601_basic_short) }}"
+
+- name: Set backup path fact
+  ansible.builtin.set_fact:
+    setup_backup_path: "{{ backup_path | default(setup_backup_root ~ '/' ~ setup_backup_id) }}"
+
+- name: Create backup directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+  loop:
+    - "{{ setup_backup_path }}"
+    - "{{ setup_backup_path }}/files"
+    - "{{ setup_backup_path }}/network"
+
+- name: Check files that may be changed by setup
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  register: setup_backup_file_stats
+  loop:
+    - /etc/hostname
+    - /etc/hosts
+    - /etc/selinux/config
+    - /root/.bashrc
+    - "{{ ssh_key_path | default('/root/.ssh/id_rsa') }}"
+    - "{{ (ssh_key_path | default('/root/.ssh/id_rsa')) ~ '.pub' }}"
+
+- name: Ensure nested backup directories exist for copied files
+  ansible.builtin.file:
+    path: "{{ setup_backup_path }}/files{{ item | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+  loop:
+    - /etc/hostname
+    - /etc/hosts
+    - /etc/selinux/config
+    - /root/.bashrc
+    - "{{ ssh_key_path | default('/root/.ssh/id_rsa') }}"
+    - "{{ (ssh_key_path | default('/root/.ssh/id_rsa')) ~ '.pub' }}"
+
+- name: Backup existing files before setup changes
+  ansible.builtin.copy:
+    src: "{{ item.stat.path }}"
+    dest: "{{ setup_backup_path }}/files{{ item.stat.path }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: preserve
+  loop: "{{ setup_backup_file_stats.results }}"
+  when: item.stat.exists | default(false)
+
+- name: Read original root shadow line
+  ansible.builtin.command:
+    argv:
+      - getent
+      - shadow
+      - root
+  register: setup_root_shadow_line
+  changed_when: false
+  failed_when: false
+  no_log: true
+
+- name: Save root shadow line separately
+  ansible.builtin.copy:
+    dest: "{{ setup_backup_path }}/files/root.shadow.line"
+    content: "{{ setup_root_shadow_line.stdout }}\n"
+    owner: root
+    group: root
+    mode: '0600'
+  when: setup_root_shadow_line.rc == 0
+  no_log: true
+
+- name: Read current hostname
+  ansible.builtin.command:
+    argv:
+      - hostnamectl
+      - --static
+  register: setup_hostname_before
+  changed_when: false
+  failed_when: false
+
+- name: Read firewalld enabled state
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-enabled
+      - firewalld
+  register: setup_firewalld_enabled_before
+  changed_when: false
+  failed_when: false
+
+- name: Read firewalld active state
+  ansible.builtin.command:
+    argv:
+      - systemctl
+      - is-active
+      - firewalld
+  register: setup_firewalld_active_before
+  changed_when: false
+  failed_when: false
+
+- name: Read SELinux runtime mode
+  ansible.builtin.command:
+    argv:
+      - getenforce
+  register: setup_selinux_runtime_before
+  changed_when: false
+  failed_when: false
+
+- name: Check selected package state before setup role packages task
+  ansible.builtin.command:
+    argv:
+      - rpm
+      - -q
+      - "{{ item }}"
+  register: setup_package_state_before
+  changed_when: false
+  failed_when: false
+  loop:
+    - openssh-server
+    - dconf
+    - gsettings-desktop-schemas
+    - glib2
+    - gnome-tweaks
+    - ibus
+    - ibus-hangul
+    - code
+
+- name: Read current GNOME values before setup
+  ansible.builtin.command:
+    argv:
+      - gsettings
+      - get
+      - "{{ item.schema }}"
+      - "{{ item.key }}"
+  register: setup_gsettings_before
+  changed_when: false
+  failed_when: false
+  loop:
+    - { schema: org.gnome.desktop.session, key: idle-delay, id: gnome_idle_delay }
+    - { schema: org.gnome.desktop.screensaver, key: lock-enabled, id: gnome_lock_enabled }
+    - { schema: org.gnome.settings-daemon.plugins.power, key: power-profile, id: gnome_power_profile }
+    - { schema: org.gnome.desktop.interface, key: monospace-font-name, id: gnome_monospace_font_name }
+    - { schema: org.gnome.desktop.input-sources, key: sources, id: korean_input_sources }
+
+- name: List VSCode extensions before setup
+  ansible.builtin.command:
+    argv:
+      - code
+      - --list-extensions
+      - --user-data-dir
+      - "{{ vscode_user_data_dir | default('/root/vscode') }}"
+      - --no-sandbox
+  register: setup_vscode_extensions_before
+  changed_when: false
+  failed_when: false
+
+- name: List NetworkManager connections before setup
+  ansible.builtin.command:
+    argv:
+      - nmcli
+      - -t
+      - -f
+      - NAME,UUID,DEVICE,TYPE
+      - connection
+      - show
+  register: setup_nm_connections_before
+  changed_when: false
+  failed_when: false
+
+- name: Export selected primary NetworkManager connection
+  ansible.builtin.command:
+    argv:
+      - nmcli
+      - connection
+      - export
+      - "{{ network_connection }}"
+      - "{{ setup_backup_path }}/network/{{ network_connection | regex_replace('[^A-Za-z0-9_.-]', '_') }}.nmconnection"
+  register: setup_primary_nm_export
+  changed_when: false
+  failed_when: false
+  when: network_connection | default('') | length > 0
+
+- name: Export selected extra NetworkManager connection
+  ansible.builtin.command:
+    argv:
+      - nmcli
+      - connection
+      - export
+      - "{{ extra_nic_connection }}"
+      - "{{ setup_backup_path }}/network/{{ extra_nic_connection | regex_replace('[^A-Za-z0-9_.-]', '_') }}.nmconnection"
+  register: setup_extra_nm_export
+  changed_when: false
+  failed_when: false
+  when:
+    - extra_nic_connection | default('') | length > 0
+    - extra_nic_connection | default('') != network_connection | default('')
+
+- name: Write rollback metadata
+  ansible.builtin.copy:
+    dest: "{{ setup_backup_path }}/restore_vars.yml"
+    owner: root
+    group: root
+    mode: '0600'
+    content: |
+      ---
+      backup_id: {{ setup_backup_id | to_json }}
+      backup_path: {{ setup_backup_path | to_json }}
+      created_at: {{ ansible_date_time.iso8601 | to_json }}
+      project_name: {{ project_name | default('centosstream9-vmware-setup') | to_json }}
+      previous_hostname: {{ (setup_hostname_before.stdout | default('')) | to_json }}
+      firewalld_enabled_before: {{ (setup_firewalld_enabled_before.stdout | default('unknown')) | to_json }}
+      firewalld_active_before: {{ (setup_firewalld_active_before.stdout | default('unknown')) | to_json }}
+      selinux_runtime_before: {{ (setup_selinux_runtime_before.stdout | default('unknown')) | to_json }}
+      ssh_key_path_before: {{ ssh_key_path | default('/root/.ssh/id_rsa') | to_json }}
+      vscode_user_data_dir_before: {{ vscode_user_data_dir | default('/root/vscode') | to_json }}
+      vscode_workdir_before: {{ vscode_workdir | default('/root/shell') | to_json }}
+      vscode_extensions_before: {{ (setup_vscode_extensions_before.stdout_lines | default([])) | to_json }}
+      network_connection_before: {{ network_connection | default('') | to_json }}
+      extra_nic_connection_before: {{ extra_nic_connection | default('') | to_json }}
+      nm_connections_before_raw: {{ (setup_nm_connections_before.stdout | default('')) | to_json }}
+      package_state_before:
+      {% for result in setup_package_state_before.results | default([]) %}
+        {{ result.item }}: {{ (result.rc == 0) | to_json }}
+      {% endfor %}
+      gsettings_before:
+      {% for result in setup_gsettings_before.results | default([]) %}
+        {{ result.item.id }}:
+          schema: {{ result.item.schema | to_json }}
+          key: {{ result.item.key | to_json }}
+          value: {{ (result.stdout | default('')) | to_json }}
+          available: {{ (result.rc == 0) | to_json }}
+      {% endfor %}
+      file_existence_before:
+      {% for result in setup_backup_file_stats.results | default([]) %}
+        {{ result.stat.path }}: {{ (result.stat.exists | default(false)) | to_json }}
+      {% endfor %}
+
+- name: Show backup path
+  ansible.builtin.debug:
+    msg: "Rollback backup captured at {{ setup_backup_path }}"

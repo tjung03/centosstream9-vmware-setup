@@ -1,0 +1,11 @@
+---
+- name: Restore CentOS Stream 9 VMware lab VM from setup backup
+  hosts: local
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Restore state captured before setup playbook
+      ansible.builtin.include_role:
+        name: cs9_vmware_setup
+        tasks_from: restore

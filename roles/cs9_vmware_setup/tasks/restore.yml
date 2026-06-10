@@ -1,0 +1,195 @@
+---
+- name: Assert restore_backup_path is provided
+  ansible.builtin.assert:
+    that:
+      - restore_backup_path is defined
+      - restore_backup_path | length > 0
+    fail_msg: "restore_backup_path 변수가 필요합니다. 예: -e restore_backup_path=/path/to/backups/20260609_120000"
+
+- name: Check restore metadata
+  ansible.builtin.stat:
+    path: "{{ restore_backup_path }}/restore_vars.yml"
+  register: restore_metadata_stat
+
+- name: Assert restore metadata exists
+  ansible.builtin.assert:
+    that:
+      - restore_metadata_stat.stat.exists
+    fail_msg: "restore_vars.yml을 찾을 수 없습니다: {{ restore_backup_path }}/restore_vars.yml"
+
+- name: Load restore metadata
+  ansible.builtin.include_vars:
+    file: "{{ restore_backup_path }}/restore_vars.yml"
+    name: rollback
+
+- name: Restore hostname
+  ansible.builtin.hostname:
+    name: "{{ rollback.previous_hostname }}"
+  when: rollback.previous_hostname | default('') | length > 0
+  register: restore_hostname_result
+
+- name: Mark reboot required when hostname restored
+  ansible.builtin.set_fact:
+    reboot_required: true
+  when: restore_hostname_result is changed
+
+- name: Check backed up managed files
+  ansible.builtin.stat:
+    path: "{{ restore_backup_path }}/files{{ item }}"
+  register: restore_file_stats
+  loop:
+    - /etc/hosts
+    - /etc/selinux/config
+    - /root/.bashrc
+
+- name: Restore backed up managed files exactly
+  ansible.builtin.copy:
+    src: "{{ item.stat.path }}"
+    dest: "{{ item.item }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: preserve
+    backup: true
+  loop: "{{ restore_file_stats.results }}"
+  when: item.stat.exists | default(false)
+
+- name: Remove files that did not exist before setup
+  ansible.builtin.file:
+    path: "{{ item.key }}"
+    state: absent
+  loop: "{{ rollback.file_existence_before | default({}) | dict2items }}"
+  when:
+    - item.key in ['/root/.bashrc']
+    - not (item.value | bool)
+
+- name: Check backed up root shadow line
+  ansible.builtin.stat:
+    path: "{{ restore_backup_path }}/files/root.shadow.line"
+  register: restore_root_shadow_stat
+  no_log: true
+
+- name: Read backed up root shadow line
+  ansible.builtin.slurp:
+    src: "{{ restore_backup_path }}/files/root.shadow.line"
+  register: restore_root_shadow_slurp
+  when: restore_root_shadow_stat.stat.exists
+  no_log: true
+
+- name: Restore root password hash line
+  ansible.builtin.lineinfile:
+    path: /etc/shadow
+    regexp: '^root:'
+    line: "{{ restore_root_shadow_slurp.content | b64decode | trim }}"
+    backup: true
+  when: restore_root_shadow_stat.stat.exists
+  no_log: true
+
+- name: Restore SSH key files when they existed before
+  ansible.builtin.copy:
+    src: "{{ restore_backup_path }}/files{{ item }}"
+    dest: "{{ item }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: preserve
+  loop:
+    - "{{ rollback.ssh_key_path_before | default('/root/.ssh/id_rsa') }}"
+    - "{{ (rollback.ssh_key_path_before | default('/root/.ssh/id_rsa')) ~ '.pub' }}"
+  when: (rollback.file_existence_before[item] | default(false)) | bool
+
+- name: Remove SSH key files that did not exist before setup
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ rollback.ssh_key_path_before | default('/root/.ssh/id_rsa') }}"
+    - "{{ (rollback.ssh_key_path_before | default('/root/.ssh/id_rsa')) ~ '.pub' }}"
+  when: not ((rollback.file_existence_before[item] | default(false)) | bool)
+
+- name: Restore firewalld enabled state
+  ansible.builtin.systemd_service:
+    name: firewalld
+    enabled: "{{ rollback.firewalld_enabled_before == 'enabled' }}"
+  failed_when: false
+  when: rollback.firewalld_enabled_before | default('unknown') in ['enabled', 'disabled']
+
+- name: Restore firewalld active state
+  ansible.builtin.systemd_service:
+    name: firewalld
+    state: "{{ 'started' if rollback.firewalld_active_before == 'active' else 'stopped' }}"
+  failed_when: false
+  when: rollback.firewalld_active_before | default('unknown') in ['active', 'inactive', 'failed']
+
+- name: Restore SELinux runtime mode when possible
+  ansible.builtin.command:
+    argv:
+      - setenforce
+      - "{{ '1' if rollback.selinux_runtime_before == 'Enforcing' else '0' }}"
+  changed_when: true
+  failed_when: false
+  when: rollback.selinux_runtime_before | default('unknown') in ['Enforcing', 'Permissive']
+
+- name: Restore GNOME gsettings values
+  ansible.builtin.command:
+    argv:
+      - gsettings
+      - set
+      - "{{ item.value.schema }}"
+      - "{{ item.value.key }}"
+      - "{{ item.value.value }}"
+  loop: "{{ rollback.gsettings_before | default({}) | dict2items }}"
+  changed_when: true
+  failed_when: false
+  when:
+    - item.value.available | default(false) | bool
+    - item.value.value | default('') | length > 0
+
+- name: Find exported NetworkManager connection backups
+  ansible.builtin.find:
+    paths: "{{ restore_backup_path }}/network"
+    patterns: "*.nmconnection"
+  register: restore_nm_exports
+  when: restore_network | default(false) | bool
+
+- name: Import backed up NetworkManager connections when explicitly requested
+  ansible.builtin.command:
+    argv:
+      - nmcli
+      - connection
+      - import
+      - type
+      - keyfile
+      - file
+      - "{{ item.path }}"
+  loop: "{{ restore_nm_exports.files | default([]) }}"
+  register: restore_nm_import_result
+  changed_when: restore_nm_import_result.rc == 0
+  failed_when: false
+  when: restore_network | default(false) | bool
+
+- name: Remove VSCode package if it was absent before setup and package rollback is requested
+  ansible.builtin.dnf:
+    name: code
+    state: absent
+  when:
+    - restore_packages | default(false) | bool
+    - not (rollback.package_state_before.code | default(true) | bool)
+
+- name: Remove optional packages installed by setup if absent before and package rollback is requested
+  ansible.builtin.dnf:
+    name: "{{ item.key }}"
+    state: absent
+  loop: "{{ rollback.package_state_before | default({}) | dict2items }}"
+  when:
+    - restore_packages | default(false) | bool
+    - item.key in ['gnome-tweaks', 'ibus-hangul', 'ibus']
+    - not (item.value | bool)
+
+- name: Show restore notice
+  ansible.builtin.debug:
+    msg: >-
+      Restore completed from {{ restore_backup_path }}.
+      Network connection import is controlled by restore_network={{ restore_network | default(false) }}.
+      Package removal is controlled by restore_packages={{ restore_packages | default(false) }}.
+      A reboot may be required for hostname, SELinux, GNOME session, or network state to fully reflect rollback.

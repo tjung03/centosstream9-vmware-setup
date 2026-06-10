@@ -1,0 +1,89 @@
+---
+project_name: centosstream9-vmware-setup
+project_default_path: "~/centosstream9-vmware-setup"
+
+# start.sh normally creates generated_vars/env.yml and overrides these defaults.
+apply_hostname: false
+hostname_value: main.example.com
+
+change_root_password: false
+# root_password is intentionally omitted by default.
+
+configure_network: false
+network_interface: ens160
+network_connection: eth0
+network_ip_cidr: 192.168.10.10/24
+network_gateway: 192.168.10.2
+network_dns: 8.8.8.8
+network_dns_search: example.com
+
+configure_extra_nic: false
+extra_nic_interface: ens192
+extra_nic_connection: eth1
+extra_nic_ip_cidr: 10.1.93.200/24
+extra_nic_set_gateway: false
+extra_nic_gateway: ""
+
+disable_firewalld: true
+configure_selinux: true
+selinux_state: permissive
+
+generate_ssh_key: false
+ssh_key_force: false
+ssh_key_path: /root/.ssh/id_rsa
+remote_vms: []
+
+manage_hosts: true
+hosts_entries:
+  - ip: 192.168.10.10
+    fqdn: main.example.com
+    aliases: main
+  - ip: 192.168.10.20
+    fqdn: server1.example.com
+    aliases: server1
+  - ip: 192.168.10.30
+    fqdn: server2.example.com
+    aliases: server2
+
+configure_ps1: true
+ps1_file: /root/.bashrc
+ps1_prompt: "\\[\\e[31;1m\\][\\u@\\h\\[\\e[33;1m\\] \\w]\\$ \\[\\e[m\\]"
+
+configure_gnome: true
+unlock_screen: true
+gnome_idle_delay: 0
+gnome_lock_enabled: false
+gnome_power_profile: balanced
+install_gnome_tweaks: true
+gnome_font_family: Monospace
+gnome_font_weight: Bold
+gnome_font_size: 18
+gnome_monospace_font_name: "Monospace Bold 18"
+enable_gnome_extensions: true
+create_terminal_desktop_icon: true
+
+configure_korean_input: true
+korean_input_sources: "[('ibus', 'hangul'), ('xkb', 'us')]"
+
+install_vscode: false
+configure_vscode_alias: true
+vscode_workdir: /root/shell
+vscode_user_data_dir: /root/vscode
+vscode_extensions:
+  - MS-CEINTL.vscode-language-pack-ko
+  - rogalmic.bash-debug
+  - mads-hartmann.bash-ide-vscode
+  - jeff-hykin.better-shellscript-syntax
+
+# Safer default. If true, tasks/reboot.yml may reboot localhost.
+auto_reboot: false
+reboot_required: false
+
+# Rollback backup. start.sh normally overrides backup_id/backup_path per run.
+backup_enabled: true
+backup_root: "{{ playbook_dir }}/backups"
+backup_id: ""
+backup_path: ""
+restore_backup_path: ""
+restore_network: false
+restore_packages: false

@@ -1,0 +1,156 @@
+---
+- name: Compose GNOME monospace font name
+  ansible.builtin.set_fact:
+    gnome_monospace_font_name: "{{ gnome_font_family }} {{ gnome_font_weight }} {{ gnome_font_size }}"
+  when:
+    - configure_gnome | default(false) | bool
+    - gnome_font_family is defined
+    - gnome_font_weight is defined
+    - gnome_font_size is defined
+
+- name: Read GNOME idle delay
+  ansible.builtin.command:
+    argv:
+      - gsettings
+      - get
+      - org.gnome.desktop.session
+      - idle-delay
+  register: gnome_idle_delay_current
+  changed_when: false
+  failed_when: false
+  when:
+    - configure_gnome | default(false) | bool
+    - unlock_screen | default(false) | bool
+
+- name: Set GNOME idle delay
+  ansible.builtin.command:
+    argv:
+      - gsettings
+      - set
+      - org.gnome.desktop.session
+      - idle-delay
+      - "{{ gnome_idle_delay | string }}"
+  when:
+    - configure_gnome | default(false) | bool
+    - unlock_screen | default(false) | bool
+    - gnome_idle_delay_current.rc == 0
+    - gnome_idle_delay_current.stdout | trim != "uint32 " ~ (gnome_idle_delay | string)
+
+- name: Read GNOME lock-enabled value
+  ansible.builtin.command:
+    argv:
+      - gsettings
+      - get
+      - org.gnome.desktop.screensaver
+      - lock-enabled
+  register: gnome_lock_current
+  changed_when: false
+  failed_when: false
+  when:
+    - configure_gnome | default(false) | bool
+    - unlock_screen | default(false) | bool
+
+- name: Disable GNOME screen lock
+  ansible.builtin.command:
+    argv:
+      - gsettings
+      - set
+      - org.gnome.desktop.screensaver
+      - lock-enabled
+      - "false"
+  when:
+    - configure_gnome | default(false) | bool
+    - unlock_screen | default(false) | bool
+    - gnome_lock_current.rc == 0
+    - gnome_lock_current.stdout | trim != 'false'
+
+- name: Read GNOME power profile
+  ansible.builtin.command:
+    argv:
+      - gsettings
+      - get
+      - org.gnome.settings-daemon.plugins.power
+      - power-profile
+  register: gnome_power_current
+  changed_when: false
+  failed_when: false
+  when: configure_gnome | default(false) | bool
+
+- name: Set GNOME power profile
+  ansible.builtin.command:
+    argv:
+      - gsettings
+      - set
+      - org.gnome.settings-daemon.plugins.power
+      - power-profile
+      - "{{ gnome_power_profile }}"
+  when:
+    - configure_gnome | default(false) | bool
+    - gnome_power_current.rc == 0
+    - gnome_power_current.stdout | trim != "'" ~ gnome_power_profile ~ "'"
+
+- name: Read GNOME monospace font
+  ansible.builtin.command:
+    argv:
+      - gsettings
+      - get
+      - org.gnome.desktop.interface
+      - monospace-font-name
+  register: gnome_font_current
+  changed_when: false
+  failed_when: false
+  when: configure_gnome | default(false) | bool
+
+- name: Set GNOME monospace font
+  ansible.builtin.command:
+    argv:
+      - gsettings
+      - set
+      - org.gnome.desktop.interface
+      - monospace-font-name
+      - "{{ gnome_monospace_font_name }}"
+  when:
+    - configure_gnome | default(false) | bool
+    - gnome_font_current.rc == 0
+    - gnome_font_current.stdout | trim != "'" ~ gnome_monospace_font_name ~ "'"
+
+- name: Enable available GNOME extensions best-effort
+  ansible.builtin.shell: |
+    set -o pipefail
+    if command -v gnome-extensions >/dev/null 2>&1; then
+      for item in $(gnome-extensions list); do
+        gnome-extensions enable "$item" || true
+      done
+    fi
+  args:
+    executable: /bin/bash
+  changed_when: false
+  when:
+    - configure_gnome | default(false) | bool
+    - enable_gnome_extensions | default(false) | bool
+
+- name: Copy terminal desktop launcher to Korean desktop
+  ansible.builtin.copy:
+    src: /usr/share/applications/org.gnome.Terminal.desktop
+    dest: /root/바탕화면/org.gnome.Terminal.desktop
+    remote_src: true
+    owner: root
+    group: root
+    mode: '0755'
+  failed_when: false
+  when:
+    - configure_gnome | default(false) | bool
+    - create_terminal_desktop_icon | default(false) | bool
+
+- name: Copy terminal desktop launcher to English desktop
+  ansible.builtin.copy:
+    src: /usr/share/applications/org.gnome.Terminal.desktop
+    dest: /root/Desktop/org.gnome.Terminal.desktop
+    remote_src: true
+    owner: root
+    group: root
+    mode: '0755'
+  failed_when: false
+  when:
+    - configure_gnome | default(false) | bool
+    - create_terminal_desktop_icon | default(false) | bool

@@ -1,0 +1,16 @@
+---
+- name: Ensure shell profile target exists
+  ansible.builtin.file:
+    path: "{{ ps1_file }}"
+    state: touch
+    owner: root
+    group: root
+    mode: '0644'
+  when: configure_ps1 | default(false) | bool
+
+- name: Configure PS1 managed block
+  ansible.builtin.blockinfile:
+    path: "{{ ps1_file }}"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - centosstream9-vmware-setup PS1"
+    block: "{{ lookup('ansible.builtin.template', 'bashrc_prompt.j2') }}"
+  when: configure_ps1 | default(false) | bool

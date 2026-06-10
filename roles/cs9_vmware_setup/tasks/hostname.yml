@@ -1,0 +1,23 @@
+---
+- name: Set hostname
+  ansible.builtin.hostname:
+    name: "{{ hostname_value }}"
+  register: hostname_result
+  when: apply_hostname | default(false) | bool
+
+- name: Mark reboot required when hostname changed
+  ansible.builtin.set_fact:
+    reboot_required: true
+  when:
+    - apply_hostname | default(false) | bool
+    - hostname_result is changed
+
+- name: Change root password when requested
+  ansible.builtin.user:
+    name: root
+    password: "{{ root_password | password_hash('sha512') }}"
+  no_log: true
+  when:
+    - change_root_password | default(false) | bool
+    - root_password is defined
+    - root_password | length > 0

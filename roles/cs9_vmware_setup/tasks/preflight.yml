@@ -1,0 +1,36 @@
+---
+- name: Read /etc/os-release
+  ansible.builtin.slurp:
+    src: /etc/os-release
+  register: os_release_raw
+
+- name: Decode /etc/os-release
+  ansible.builtin.set_fact:
+    os_release_text: "{{ os_release_raw.content | b64decode }}"
+
+- name: Assert target OS is CentOS Stream 9
+  ansible.builtin.assert:
+    that:
+      - "'CentOS Stream' in os_release_text"
+      - "'VERSION_ID=\"9\"' in os_release_text or 'VERSION_ID=9' in os_release_text"
+    fail_msg: "This tool supports CentOS Stream 9 only."
+    success_msg: "CentOS Stream 9 detected."
+
+- name: Assert playbook runs as root
+  ansible.builtin.assert:
+    that:
+      - ansible_user_uid == 0
+    fail_msg: "Run start.sh as root or with sudo."
+    success_msg: "Root privileges detected."
+
+- name: Check required runtime commands after bootstrap
+  ansible.builtin.shell: "command -v {{ item }}"
+  args:
+    executable: /bin/bash
+  register: required_command_check
+  changed_when: false
+  failed_when: required_command_check.rc != 0
+  loop:
+    - dnf
+    - nmcli
+    - ansible-playbook

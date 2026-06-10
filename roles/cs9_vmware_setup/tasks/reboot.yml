@@ -1,0 +1,17 @@
+---
+- name: Show reboot notice when needed and auto reboot is disabled
+  ansible.builtin.debug:
+    msg: >-
+      Reboot is recommended because hostname, network, or SELinux-related settings changed.
+      auto_reboot=false, so reboot was not performed automatically.
+  when:
+    - reboot_required | default(false) | bool
+    - not (auto_reboot | default(false) | bool)
+
+- name: Reboot localhost when explicitly allowed
+  ansible.builtin.reboot:
+    msg: "Reboot triggered by centosstream9-vmware-setup"
+    reboot_timeout: 600
+  when:
+    - reboot_required | default(false) | bool
+    - auto_reboot | default(false) | bool

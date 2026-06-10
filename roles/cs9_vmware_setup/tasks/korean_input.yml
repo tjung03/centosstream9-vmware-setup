@@ -1,0 +1,25 @@
+---
+- name: Read GNOME input sources
+  ansible.builtin.command:
+    argv:
+      - gsettings
+      - get
+      - org.gnome.desktop.input-sources
+      - sources
+  register: input_sources_current
+  changed_when: false
+  failed_when: false
+  when: configure_korean_input | default(false) | bool
+
+- name: Configure Korean Hangul and US input sources
+  ansible.builtin.command:
+    argv:
+      - gsettings
+      - set
+      - org.gnome.desktop.input-sources
+      - sources
+      - "{{ korean_input_sources }}"
+  when:
+    - configure_korean_input | default(false) | bool
+    - input_sources_current.rc == 0
+    - input_sources_current.stdout | trim != korean_input_sources

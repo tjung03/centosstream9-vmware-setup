@@ -1,0 +1,49 @@
+---
+- name: Gather service facts
+  ansible.builtin.service_facts:
+
+- name: Disable and stop firewalld when installed
+  ansible.builtin.systemd_service:
+    name: firewalld
+    enabled: false
+    state: stopped
+  when:
+    - disable_firewalld | default(false) | bool
+    - "'firewalld.service' in ansible_facts.services"
+
+- name: Persist SELinux mode in /etc/selinux/config
+  ansible.builtin.lineinfile:
+    path: /etc/selinux/config
+    regexp: '^SELINUX='
+    line: "SELINUX={{ selinux_state }}"
+    backup: true
+  register: selinux_config_result
+  when: configure_selinux | default(false) | bool
+
+- name: Read current SELinux runtime mode
+  ansible.builtin.command:
+    argv:
+      - getenforce
+  register: selinux_runtime
+  changed_when: false
+  failed_when: false
+  when: configure_selinux | default(false) | bool
+
+- name: Set SELinux runtime mode to permissive when possible
+  ansible.builtin.command:
+    argv:
+      - setenforce
+      - "0"
+  when:
+    - configure_selinux | default(false) | bool
+    - selinux_state in ['permissive', 'disabled']
+    - selinux_runtime.rc == 0
+    - selinux_runtime.stdout | lower == 'enforcing'
+
+- name: Mark reboot required when SELinux config changed to disabled
+  ansible.builtin.set_fact:
+    reboot_required: true
+  when:
+    - configure_selinux | default(false) | bool
+    - selinux_config_result is changed
+    - selinux_state == 'disabled'

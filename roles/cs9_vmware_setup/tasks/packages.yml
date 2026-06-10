@@ -1,0 +1,30 @@
+---
+- name: Build package list
+  ansible.builtin.set_fact:
+    cs9_base_packages:
+      - dialog
+      - ansible-core
+      - NetworkManager
+      - NetworkManager-tui
+      - openssh-clients
+      - openssh-server
+      - dconf
+      - gsettings-desktop-schemas
+      - glib2
+    cs9_optional_packages: >-
+      {{
+        ([])
+        + (['gnome-tweaks'] if install_gnome_tweaks | default(false) | bool else [])
+        + (['ibus', 'ibus-hangul'] if configure_korean_input | default(false) | bool else [])
+      }}
+
+- name: Install base and selected optional packages
+  ansible.builtin.dnf:
+    name: "{{ cs9_base_packages + cs9_optional_packages }}"
+    state: present
+
+- name: Ensure NetworkManager is enabled and running
+  ansible.builtin.systemd_service:
+    name: NetworkManager
+    enabled: true
+    state: started

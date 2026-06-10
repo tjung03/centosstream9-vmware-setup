@@ -1,0 +1,79 @@
+---
+- name: Add Microsoft RPM GPG key for VSCode
+  ansible.builtin.rpm_key:
+    state: present
+    key: https://packages.microsoft.com/keys/microsoft.asc
+  when: install_vscode | default(false) | bool
+
+- name: Configure VSCode yum repository
+  ansible.builtin.yum_repository:
+    name: code
+    description: Visual Studio Code
+    baseurl: https://packages.microsoft.com/yumrepos/vscode
+    enabled: true
+    gpgcheck: true
+    gpgkey: https://packages.microsoft.com/keys/microsoft.asc
+  when: install_vscode | default(false) | bool
+
+- name: Install VSCode
+  ansible.builtin.dnf:
+    name: code
+    state: present
+  when: install_vscode | default(false) | bool
+
+- name: Ensure VSCode workdir exists
+  ansible.builtin.file:
+    path: "{{ vscode_workdir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when: install_vscode | default(false) | bool
+
+- name: Ensure VSCode user data dir exists
+  ansible.builtin.file:
+    path: "{{ vscode_user_data_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+  when: install_vscode | default(false) | bool
+
+- name: Configure VSCode root aliases
+  ansible.builtin.blockinfile:
+    path: /root/.bashrc
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - centosstream9-vmware-setup VSCODE"
+    block: |
+      alias code='code --user-data-dir {{ vscode_user_data_dir }} --no-sandbox'
+      alias vscode='code'
+  when:
+    - install_vscode | default(false) | bool
+    - configure_vscode_alias | default(false) | bool
+
+- name: List installed VSCode extensions
+  ansible.builtin.command:
+    argv:
+      - code
+      - --list-extensions
+      - --user-data-dir
+      - "{{ vscode_user_data_dir }}"
+      - --no-sandbox
+  register: vscode_installed_extensions
+  changed_when: false
+  failed_when: false
+  when: install_vscode | default(false) | bool
+
+- name: Install selected VSCode extensions
+  ansible.builtin.command:
+    argv:
+      - code
+      - --install-extension
+      - "{{ item }}"
+      - --user-data-dir
+      - "{{ vscode_user_data_dir }}"
+      - --no-sandbox
+  loop: "{{ vscode_extensions }}"
+  when:
+    - install_vscode | default(false) | bool
+    - vscode_installed_extensions.rc == 0
+    - item not in vscode_installed_extensions.stdout_lines

@@ -1,0 +1,203 @@
+---
+- name: Detect current connection for primary interface
+  ansible.builtin.command:
+    argv:
+      - nmcli
+      - -g
+      - GENERAL.CONNECTION
+      - device
+      - show
+      - "{{ network_interface }}"
+  register: primary_connection_detect
+  changed_when: false
+  failed_when: false
+  when: configure_network | default(false) | bool
+
+- name: Set primary connection name
+  ansible.builtin.set_fact:
+    primary_connection_name: >-
+      {{
+        (primary_connection_detect.stdout | trim)
+        if (primary_connection_detect.stdout | default('') | trim | length > 0 and (primary_connection_detect.stdout | trim) != '--')
+        else network_connection
+      }}
+  when: configure_network | default(false) | bool
+
+- name: Read primary connection settings
+  ansible.builtin.command:
+    argv:
+      - nmcli
+      - -t
+      - -f
+      - ipv4.method,ipv4.addresses,ipv4.gateway,ipv4.dns,ipv4.dns-search
+      - connection
+      - show
+      - "{{ primary_connection_name }}"
+  register: primary_connection_settings
+  changed_when: false
+  failed_when: false
+  when: configure_network | default(false) | bool
+
+- name: Decide whether primary connection needs update
+  ansible.builtin.set_fact:
+    primary_network_needs_update: >-
+      {{
+        primary_connection_settings.rc != 0
+        or ('ipv4.method:manual' not in primary_connection_settings.stdout)
+        or ('ipv4.addresses:' ~ network_ip_cidr not in primary_connection_settings.stdout)
+        or ('ipv4.gateway:' ~ network_gateway not in primary_connection_settings.stdout)
+        or ('ipv4.dns:' ~ network_dns not in primary_connection_settings.stdout)
+        or ('ipv4.dns-search:' ~ network_dns_search not in primary_connection_settings.stdout)
+      }}
+  when: configure_network | default(false) | bool
+
+- name: Modify primary NetworkManager connection
+  ansible.builtin.command:
+    argv:
+      - nmcli
+      - connection
+      - modify
+      - "{{ primary_connection_name }}"
+      - connection.id
+      - "{{ network_connection }}"
+      - ipv4.method
+      - manual
+      - ipv4.addresses
+      - "{{ network_ip_cidr }}"
+      - ipv4.gateway
+      - "{{ network_gateway }}"
+      - ipv4.dns
+      - "{{ network_dns }}"
+      - ipv4.dns-search
+      - "{{ network_dns_search }}"
+  when:
+    - configure_network | default(false) | bool
+    - primary_network_needs_update | bool
+
+- name: Bring up primary connection when changed
+  ansible.builtin.command:
+    argv:
+      - nmcli
+      - connection
+      - up
+      - "{{ network_connection }}"
+  when:
+    - configure_network | default(false) | bool
+    - primary_network_needs_update | bool
+
+- name: Mark reboot or reconnection notice required after primary network change
+  ansible.builtin.set_fact:
+    reboot_required: true
+  when:
+    - configure_network | default(false) | bool
+    - primary_network_needs_update | bool
+
+- name: Detect extra NIC device
+  ansible.builtin.command:
+    argv:
+      - nmcli
+      - -g
+      - GENERAL.DEVICE
+      - device
+      - show
+      - "{{ extra_nic_interface }}"
+  register: extra_nic_detect
+  changed_when: false
+  failed_when: false
+  when: configure_extra_nic | default(false) | bool
+
+- name: Fail when extra NIC is not visible to guest OS
+  ansible.builtin.fail:
+    msg: "{{ extra_nic_interface }} is not visible in the guest OS. Add the NIC in VMware first, then rerun."
+  when:
+    - configure_extra_nic | default(false) | bool
+    - extra_nic_detect.rc != 0
+
+- name: Detect current connection for extra NIC
+  ansible.builtin.command:
+    argv:
+      - nmcli
+      - -g
+      - GENERAL.CONNECTION
+      - device
+      - show
+      - "{{ extra_nic_interface }}"
+  register: extra_nic_connection_detect
+  changed_when: false
+  failed_when: false
+  when: configure_extra_nic | default(false) | bool
+
+- name: Create extra NIC connection when none exists
+  ansible.builtin.command:
+    argv:
+      - nmcli
+      - connection
+      - add
+      - type
+      - ethernet
+      - ifname
+      - "{{ extra_nic_interface }}"
+      - con-name
+      - "{{ extra_nic_connection }}"
+  when:
+    - configure_extra_nic | default(false) | bool
+    - extra_nic_connection_detect.stdout | default('') | trim in ['', '--']
+
+- name: Set extra NIC connection name fact
+  ansible.builtin.set_fact:
+    extra_connection_name: >-
+      {{
+        (extra_nic_connection_detect.stdout | trim)
+        if (extra_nic_connection_detect.stdout | default('') | trim | length > 0 and (extra_nic_connection_detect.stdout | trim) != '--')
+        else extra_nic_connection
+      }}
+  when: configure_extra_nic | default(false) | bool
+
+- name: Configure extra NIC without default gateway
+  ansible.builtin.command:
+    argv:
+      - nmcli
+      - connection
+      - modify
+      - "{{ extra_connection_name }}"
+      - connection.id
+      - "{{ extra_nic_connection }}"
+      - ipv4.method
+      - manual
+      - ipv4.addresses
+      - "{{ extra_nic_ip_cidr }}"
+      - ipv4.never-default
+      - "yes"
+  when:
+    - configure_extra_nic | default(false) | bool
+    - not (extra_nic_set_gateway | default(false) | bool)
+
+- name: Configure extra NIC with gateway
+  ansible.builtin.command:
+    argv:
+      - nmcli
+      - connection
+      - modify
+      - "{{ extra_connection_name }}"
+      - connection.id
+      - "{{ extra_nic_connection }}"
+      - ipv4.method
+      - manual
+      - ipv4.addresses
+      - "{{ extra_nic_ip_cidr }}"
+      - ipv4.gateway
+      - "{{ extra_nic_gateway }}"
+      - ipv4.never-default
+      - "no"
+  when:
+    - configure_extra_nic | default(false) | bool
+    - extra_nic_set_gateway | default(false) | bool
+
+- name: Bring up extra NIC connection
+  ansible.builtin.command:
+    argv:
+      - nmcli
+      - connection
+      - up
+      - "{{ extra_nic_connection }}"
+  when: configure_extra_nic | default(false) | bool

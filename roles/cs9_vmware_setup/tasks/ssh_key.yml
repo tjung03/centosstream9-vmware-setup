@@ -1,0 +1,39 @@
+---
+- name: Ensure .ssh directory exists
+  ansible.builtin.file:
+    path: "{{ ssh_key_path | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+  when: generate_ssh_key | default(false) | bool
+
+- name: Remove existing SSH key when overwrite is requested
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ ssh_key_path }}"
+    - "{{ ssh_key_path }}.pub"
+  when:
+    - generate_ssh_key | default(false) | bool
+    - ssh_key_force | default(false) | bool
+
+- name: Generate SSH key for future remote VM expansion
+  ansible.builtin.command:
+    argv:
+      - ssh-keygen
+      - -t
+      - rsa
+      - -f
+      - "{{ ssh_key_path }}"
+      - -N
+      - ""
+  args:
+    creates: "{{ ssh_key_path }}"
+  when: generate_ssh_key | default(false) | bool
+
+- name: Show remote VM expansion note
+  ansible.builtin.debug:
+    msg: "SSH key is prepared locally. Remote server1/server2 key distribution is intentionally outside this prototype."
+  when: generate_ssh_key | default(false) | bool

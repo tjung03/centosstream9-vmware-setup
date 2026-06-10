@@ -1,0 +1,8 @@
+---
+- name: Configure CentOS Stream 9 VMware lab VM
+  hosts: local
+  gather_facts: true
+  become: true
+
+  roles:
+    - role: cs9_vmware_setup

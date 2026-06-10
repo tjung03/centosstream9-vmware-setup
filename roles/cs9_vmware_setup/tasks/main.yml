@@ -1,0 +1,44 @@
+---
+- name: Initialize reboot flag
+  ansible.builtin.set_fact:
+    reboot_required: false
+
+- name: Preflight checks
+  ansible.builtin.include_tasks: preflight.yml
+
+- name: Capture rollback backup before changes
+  ansible.builtin.include_tasks: backup.yml
+  when: backup_enabled | default(true) | bool
+
+- name: Install required packages
+  ansible.builtin.include_tasks: packages.yml
+
+- name: Configure hostname and root account
+  ansible.builtin.include_tasks: hostname.yml
+
+- name: Configure NetworkManager profiles
+  ansible.builtin.include_tasks: network.yml
+
+- name: Configure firewalld and SELinux
+  ansible.builtin.include_tasks: security.yml
+
+- name: Prepare SSH key option
+  ansible.builtin.include_tasks: ssh_key.yml
+
+- name: Manage /etc/hosts entries
+  ansible.builtin.include_tasks: hosts.yml
+
+- name: Configure shell profile
+  ansible.builtin.include_tasks: shell_profile.yml
+
+- name: Configure GNOME desktop settings
+  ansible.builtin.include_tasks: gnome.yml
+
+- name: Configure Korean input source
+  ansible.builtin.include_tasks: korean_input.yml
+
+- name: Configure VSCode option
+  ansible.builtin.include_tasks: vscode.yml
+
+- name: Handle reboot policy
+  ansible.builtin.include_tasks: reboot.yml
