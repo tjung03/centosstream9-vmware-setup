@@ -1,6 +1,6 @@
 # CentOS Stream 9 실습 VM 환경 설정 자동화
 
-**TUI에서 필요한 설정을 선택하면 Bash가 변수 파일을 만들고, Ansible이 현재 VM에 적용한다.**
+**터미널 설정 화면(TUI)에서 필요한 설정을 선택하면 Bash가 변수 파일을 만들고, Ansible이 현재 VM에 적용한다.**
 VMware에서 부팅한 CentOS Stream 9 실습 VM의 네트워크·호스트 설정부터 GNOME·한글 입력·VS Code까지 반복적인 초기 설정을 묶었다.
 
 실행 대상은 [Inventory](inventory)에 정의된 `localhost`다. [start.sh](start.sh)가 사용자 입력을 담당하고, [Ansible Role](roles/cs9_vmware_setup/tasks/main.yml)이 기능별 설정과 변경 전 상태 수집을 담당한다.
@@ -8,7 +8,7 @@ VMware에서 부팅한 CentOS Stream 9 실습 VM의 네트워크·호스트 설�
 ## 주요 구현
 
 - **입력과 적용의 분리:** `dialog` 체크리스트의 선택값을 `generated_vars/env.yml`로 저장한다. 요약 화면에서 확인한 뒤 바로 적용하거나, 변수 파일을 검토하고 나중에 적용할 수 있다.
-- **현재 환경을 반영한 입력값:** 호스트명, 활성 NIC, NetworkManager 프로필과 IPv4 설정을 조회해 TUI 기본값으로 사용한다.
+- **현재 환경을 반영한 입력값:** 호스트명, 활성 네트워크 인터페이스(NIC), NetworkManager 프로필과 IPv4 설정을 조회해 TUI 기본값으로 사용한다.
 - **기능별 Task 구성:** 네트워크·보안 설정·데스크톱·개발 도구를 개별 파일로 나누고 변수 조건으로 실행한다. `/etc/hosts`와 쉘 설정은 `blockinfile`의 관리 블록으로 추가한다.
 - **현재 상태를 조회한 뒤 변경:** 기본 NIC 설정과 주요 GNOME 값을 비교하고, SSH 키는 파일 존재 여부, VS Code 확장은 설치 목록을 확인해 적용한다.
 - **설정 적용과 복구 경로 분리:** 변경 전 파일·서비스 상태를 실행별 디렉터리에 수집하고, 별도 `restore.yml`에서 백업을 선택해 복구한다. 대상 항목은 [백업과 복구](docs/restore.md)에 정리했다.
