@@ -7,23 +7,7 @@ VMware에서 부팅한 CentOS Stream 9 실습 VM의 네트워크·호스트 설�
 
 ## 자동화 흐름
 
-```mermaid
-flowchart TD
-    A["start.sh 실행"] --> B["CentOS Stream 9·권한·터미널 검사"]
-    B --> C["현재 Hostname·NIC·NetworkManager 상태 조회"]
-    C --> D["dialog TUI에서 적용 항목·값 선택"]
-    D --> E["generated_vars/env.yml 생성"]
-    E --> F["playbook.yml 실행"]
-    F --> G["cs9_vmware_setup Role"]
-    G --> H["Preflight"]
-    H --> I["변경 전 상태 Backup"]
-    I --> J["선택한 기능별 Task 적용<br/>Package · Hostname · Network · Security · SSH · Hosts · Shell · GNOME · IBus · VS Code"]
-    J --> K["선택 결과 확인·필요 시 수동 재부팅"]
-
-    I --> R["백업 디렉터리"]
-    R --> S["start.sh --restore / restore.yml"]
-    S --> T["선택한 백업 기준 복구"]
-```
+![TUI 입력과 현재 환경 조회에서 변수 파일 생성, Ansible Role 적용, 백업과 복구까지의 CentOS Stream 9 VM 설정 자동화 흐름](docs/images/automation-flow.svg)
 
 TUI는 현재 환경에서 조회한 값을 기본값으로 사용하고, 선택 결과를 변수 파일로 분리합니다. Ansible Role은 Preflight와 변경 전 Backup을 거친 뒤 기능별 Task를 순서대로 적용합니다. 복구는 생성된 백업을 선택해 별도 `restore.yml` 경로로 실행합니다.
 
