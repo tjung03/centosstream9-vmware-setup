@@ -7,9 +7,17 @@ VMware에서 부팅한 CentOS Stream 9 실습 VM의 네트워크·호스트 설�
 
 ## 자동화 흐름
 
-![TUI 입력과 현재 환경 조회에서 변수 파일 생성, Ansible Role 적용, 백업과 복구까지의 CentOS Stream 9 VM 설정 자동화 흐름](docs/images/automation-flow.svg)
+### Setup
 
-TUI는 현재 환경에서 조회한 값을 기본값으로 사용하고, 선택 결과를 변수 파일로 분리합니다. Ansible Role은 Preflight와 변경 전 Backup을 거친 뒤 기능별 Task를 순서대로 적용합니다. 복구는 생성된 백업을 선택해 별도 `restore.yml` 경로로 실행합니다.
+![현재 VM 상태를 감지하고 TUI 선택값을 변수 파일로 만든 뒤 Ansible Role로 적용하는 Setup 흐름](docs/images/automation-flow.svg)
+
+기본 실행은 현재 환경을 감지해 TUI 기본값으로 사용하고, 선택 결과를 `generated_vars/env.yml`에 저장합니다. Ansible Role은 Preflight와 변경 전 Backup을 거친 뒤 선택한 기능별 Task를 순서대로 적용합니다. Summary에서 Ansible 실행을 선택하지 않으면 변수 파일만 저장하고 종료합니다.
+
+### Restore
+
+![기존 Backup과 Restore 옵션을 선택하고 restore.yml을 통해 Role의 restore Task를 실행하는 흐름](docs/images/restore-flow.svg)
+
+`start.sh --restore`는 기존 Backup을 선택한 뒤 Network 복구와 Package 제거 여부를 별도로 확인합니다. 선택값은 `restore.yml`에 Extra Vars로 전달되고, Role의 `restore` Task가 해당 Backup 기준으로 상태를 복구합니다.
 
 ## 주요 구현
 
