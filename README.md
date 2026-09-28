@@ -17,7 +17,7 @@ flowchart TD
     F --> G["cs9_vmware_setup Role"]
     G --> H["Preflight"]
     H --> I["변경 전 상태 Backup"]
-    I --> J["Package · Hostname · Network · Security · SSH · Hosts · Shell · GNOME · IBus · VS Code"]
+    I --> J["선택한 기능별 Task 적용<br/>Package · Hostname · Network · Security · SSH · Hosts · Shell · GNOME · IBus · VS Code"]
     J --> K["선택 결과 확인·필요 시 수동 재부팅"]
 
     I --> R["백업 디렉터리"]
