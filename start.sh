@@ -208,6 +208,7 @@ feature_selected() {
   grep -qx "$feature" "$FEATURE_FILE"
 }
 
+# TUI 문자열을 작은따옴표 YAML scalar로 기록하며 내부 작은따옴표는 두 번 써서 보존한다.
 yaml_quote() {
   local value="${1-}"
   value="${value//\'/\'\'}"
@@ -422,6 +423,7 @@ render_summary() {
   printf '%s' "$text"
 }
 
+# 선택한 설정과 선택적 비밀번호를 generated_vars/env.yml에 기록한다. 이 파일은 마지막에 0600 권한으로 제한한다.
 write_vars_file() {
   mkdir -p "$VAR_DIR"
   umask 077
@@ -548,6 +550,7 @@ run_tui() {
 }
 
 
+# restore_vars.yml이 존재하는 실행별 백업만 복구 후보로 보여준다.
 choose_restore_backup() {
   local entries=() backup_dir backup_name
   mkdir -p "$BACKUP_ROOT"
