@@ -49,7 +49,7 @@
 <path d="M650 341 H680" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
 
 <rect x="680" y="393" width="200" height="36" rx="8" fill="#ecf8f4" stroke="#a9d5c6"/>
-<text x="700" y="416" font-size="15" font-weight="700" fill="#086b62">선택 Task 순차 적용</text>
+<text x="700" y="416" font-size="15" font-weight="700" fill="#086b62">선택한 기능별 Task 적용</text>
 
 <path d="M785 377 V393" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
 
