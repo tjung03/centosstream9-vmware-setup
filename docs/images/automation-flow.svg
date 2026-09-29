@@ -10,20 +10,20 @@
 <rect x="32" y="108" width="936" height="120" rx="12" fill="#edf2ff" stroke="#b8c7e3"/>
 <text x="52" y="140" font-size="17" font-weight="700" fill="#4865a0">01  Bash / TUI</text>
 
-<rect x="115" y="133" width="210" height="68" rx="10" fill="#fff" stroke="#cbd5e1"/>
-<text x="135" y="160" font-size="17" font-weight="700" fill="#163b76">실행 환경 검사</text>
-<text x="135" y="184" font-size="13" fill="#263a54">CentOS 9 · root · TTY</text>
+<rect x="115" y="153" width="210" height="68" rx="10" fill="#fff" stroke="#cbd5e1"/>
+<text x="135" y="180" font-size="17" font-weight="700" fill="#163b76">실행 환경 검사</text>
+<text x="135" y="204" font-size="13" fill="#263a54">CentOS 9 · root · TTY</text>
 
-<rect x="395" y="133" width="210" height="68" rx="10" fill="#fff" stroke="#cbd5e1"/>
-<text x="415" y="160" font-size="17" font-weight="700" fill="#163b76">현재 환경 감지</text>
-<text x="415" y="184" font-size="13" fill="#263a54">Hostname · NIC · IP · DNS</text>
+<rect x="395" y="153" width="210" height="68" rx="10" fill="#fff" stroke="#cbd5e1"/>
+<text x="415" y="180" font-size="17" font-weight="700" fill="#163b76">현재 환경 감지</text>
+<text x="415" y="204" font-size="13" fill="#263a54">Hostname · NIC · IP · DNS</text>
 
-<rect x="675" y="133" width="210" height="68" rx="10" fill="#fff" stroke="#cbd5e1"/>
-<text x="695" y="160" font-size="17" font-weight="700" fill="#163b76">dialog TUI</text>
-<text x="695" y="184" font-size="13" fill="#263a54">적용 항목 · 값 선택</text>
+<rect x="675" y="153" width="210" height="68" rx="10" fill="#fff" stroke="#cbd5e1"/>
+<text x="695" y="180" font-size="17" font-weight="700" fill="#163b76">dialog TUI</text>
+<text x="695" y="204" font-size="13" fill="#263a54">적용 항목 · 값 선택</text>
 
-<path d="M325 167 H385" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
-<path d="M605 167 H665" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M325 187 H385" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M605 187 H665" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
 
 <rect x="32" y="250" width="936" height="190" rx="12" fill="#fff" stroke="#b8c7e3"/>
 <text x="52" y="282" font-size="17" font-weight="700" fill="#4865a0">02  Ansible 적용</text>
@@ -48,10 +48,10 @@
 <path d="M460 341 H490" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
 <path d="M650 341 H680" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
 
-<rect x="310" y="397" width="570" height="28" rx="8" fill="#ecf8f4" stroke="#a9d5c6"/>
-<text x="330" y="416" font-size="14" fill="#086b62">Backup 후 선택된 Package · Hostname · Network · Security · SSH · GNOME · IBus · VS Code Task를 순차 적용</text>
+<rect x="680" y="393" width="200" height="36" rx="8" fill="#ecf8f4" stroke="#a9d5c6"/>
+<text x="700" y="416" font-size="15" font-weight="700" fill="#086b62">선택 Task 순차 적용</text>
 
-<path d="M785 377 V397" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M785 377 V393" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
 
 <text x="84" y="475" font-size="14" fill="#475569">Summary에서 Run Ansible을 No로 선택하면 env.yml만 저장하고 종료하며 Backup은 생성하지 않음</text>
 </g></svg>
